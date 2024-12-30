@@ -1,6 +1,8 @@
 langchain>=0.1.0
 langchain-community>=0.0.10
+langchain-openai>=0.0.3
 python-dotenv
 openai
 supabase>=2.0.0
 pypdf2
+flask>=2.0.0

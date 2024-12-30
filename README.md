@@ -1,6 +1,6 @@
-# LangChain PDF Processor
+# LangChain PDF Processor with RAG Chat Interface
 
-A Python application that processes PDFs using LangChain and stores document embeddings in a Supabase vector database. This tool is perfect for creating searchable document repositories with semantic search capabilities.
+A Python application that processes PDFs using LangChain and provides a chat interface for querying the documents using RAG (Retrieval Augmented Generation).
 
 ## Features
 
@@ -8,7 +8,8 @@ A Python application that processes PDFs using LangChain and stores document emb
 - Smart document splitting with configurable chunk sizes
 - OpenAI embeddings generation
 - Supabase vector database integration
-- Error handling and logging
+- Web-based chat interface
+- RAG-powered document question answering
 - Clean, class-based architecture
 
 ## Prerequisites
@@ -19,6 +20,7 @@ Before you begin, ensure you have:
 2. A Supabase account and project
 3. An OpenAI API key
 4. Your PDF documents ready for processing
+5. A Langflow RAG configuration (rag.json)
 
 ## Installation
 
@@ -57,7 +59,7 @@ create index on bulk_documents using ivfflat (embedding vector_cosine_ops)
 
 4. Create a similarity search function:
 ```sql
-create or replace function match_documents_bulk(query_embedding vector(1536), match_count int)
+create or replace function match_documents(query_embedding vector(1536), match_count int)
 returns table (id uuid, content text, metadata jsonb, similarity float)
 language plpgsql
 as $$
@@ -79,36 +81,56 @@ $$;
 
 1. Create a `.env` file in the project root:
 ```
+# Supabase Configuration
 SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_KEY=your_supabase_key
+
+# OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key
+
+# Optional Langflow Configuration
+LANGFLOW_API_KEY=your_langflow_api_key  # if required
+LANGFLOW_API_HOST=http://localhost:3000  # adjust if different
 ```
 
-2. Update the following in `pdf_processor.py`:
-- `query_name`: Your similarity search function name (default is 'match_documents_bulk')
-- `pdf_directory`: Path to your PDF files
+2. Place your Langflow RAG configuration file:
+- Export your RAG flow from Langflow as JSON
+- Save it as `rag.json` in the project root
 
 ## Usage
 
-1. Place your PDF files in a directory
+### 1. Process PDFs
 
-2. Update the `pdf_directory` in the main function:
-```python
-ENV.pdf_directory = "path/to/your/pdfs"
-```
+First, process your PDFs to store them in the vector database:
 
-3. Run the processor:
 ```bash
-python pdf_processor.py
+python pdf_processor.py --directory /path/to/your/pdfs
 ```
 
-## How It Works
+### 2. Run the Chat Interface
 
-1. The application recursively scans the specified directory for PDF files
-2. Each PDF is loaded and split into manageable chunks
-3. OpenAI's API generates embeddings for each chunk
-4. The embeddings are stored in your Supabase vector database
-5. You can then use these embeddings for semantic search and document retrieval
+Start the Flask web application:
+
+```bash
+python app.py
+```
+
+The chat interface will be available at `http://localhost:5000`
+
+## Architecture
+
+### PDF Processing Flow
+1. Load PDFs recursively from specified directory
+2. Split documents into manageable chunks
+3. Generate embeddings using OpenAI
+4. Store in Supabase vector database
+
+### RAG Chat Flow
+1. User sends query through web interface
+2. System retrieves relevant document chunks using vector similarity
+3. Retrieved context is combined with the query
+4. LLM generates response using the context
+5. Response and sources are displayed to user
 
 ## Contributing
 
