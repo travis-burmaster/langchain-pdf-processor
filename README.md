@@ -57,7 +57,7 @@ create index on bulk_documents using ivfflat (embedding vector_cosine_ops)
 
 4. Create a similarity search function:
 ```sql
-create or replace function match_documents(query_embedding vector(1536), match_count int)
+create or replace function match_documents_bulk(query_embedding vector(1536), match_count int)
 returns table (id uuid, content text, metadata jsonb, similarity float)
 language plpgsql
 as $$
@@ -85,7 +85,7 @@ OPENAI_API_KEY=your_openai_api_key
 ```
 
 2. Update the following in `pdf_processor.py`:
-- `query_name`: Your similarity search function name (default is 'match_documents')
+- `query_name`: Your similarity search function name (default is 'match_documents_bulk')
 - `pdf_directory`: Path to your PDF files
 
 ## Usage
