@@ -54,7 +54,7 @@ class PDFProcessor:
             embedding=self.embeddings,
             client=self.supabase_client,
             table_name="bulk_documents",  # Updated table name
-            query_name="match_documents"  # Update with your query name
+            query_name="match_documents_bulk"  # Update with your query name
         )
         return vector_store
 
@@ -86,7 +86,7 @@ def main():
     """
     
     # Specify your PDF directory
-    pdf_directory = "path/to/your/pdfs"
+    pdf_directory = "/Users/travisburmaster/Downloads/GSA/"
     
     # Initialize and run the processor
     processor = PDFProcessor(pdf_directory)
