@@ -53,7 +53,7 @@ class PDFProcessor:
             documents=document_chunks,
             embedding=self.embeddings,
             client=self.supabase_client,
-            table_name="documents",  # Update with your table name
+            table_name="bulk_documents",  # Updated table name
             query_name="match_documents"  # Update with your query name
         )
         return vector_store
