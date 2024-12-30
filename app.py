@@ -1,6 +1,6 @@
-from flask import Flask, render_template, request, jsonify
-from dotenv import load_dotenv
 import os
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for
+from dotenv import load_dotenv
 import json
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import SupabaseVectorStore
@@ -13,50 +13,64 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Initialize Supabase and OpenAI clients
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
-supabase_client = create_client(supabase_url, supabase_key)
+# Initialize clients and models
+def init_clients():
+    # Initialize Supabase client
+    supabase_client = create_client(
+        os.getenv("SUPABASE_URL"),
+        os.getenv("SUPABASE_SERVICE_KEY")
+    )
+    
+    # Initialize OpenAI embeddings
+    embeddings = OpenAIEmbeddings(
+        openai_api_key=os.getenv("OPENAI_API_KEY")
+    )
+    
+    # Initialize Supabase vector store
+    vector_store = SupabaseVectorStore(
+        client=supabase_client,
+        embedding=embeddings,
+        table_name="bulk_documents",
+        query_name="match_documents"
+    )
+    
+    # Initialize ChatOpenAI
+    llm = ChatOpenAI(
+        temperature=0.7,
+        model_name="gpt-4-turbo-preview",
+        openai_api_key=os.getenv("OPENAI_API_KEY")
+    )
+    
+    # Initialize the RAG chain
+    chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vector_store.as_retriever(search_kwargs={'k': 3}),
+        return_source_documents=True,
+        verbose=True
+    )
+    
+    return chain
 
-# Initialize OpenAI embeddings
-embeddings = OpenAIEmbeddings(
-    openai_api_key=os.getenv("OPENAI_API_KEY")
-)
-
-# Initialize Supabase vector store
-vector_store = SupabaseVectorStore(
-    client=supabase_client,
-    embedding=embeddings,
-    table_name="bulk_documents",
-    query_name="match_documents"
-)
-
-# Load Langflow configuration
-def load_langflow_config():
-    config_path = os.path.join(os.path.dirname(__file__), 'rag.json')
-    if os.path.exists(config_path):
-        with open(config_path, 'r') as f:
-            return json.load(f)
-    return None
-
-# Initialize ChatOpenAI
-llm = ChatOpenAI(
-    temperature=0.7,
-    model_name="gpt-4-turbo-preview",
-    openai_api_key=os.getenv("OPENAI_API_KEY")
-)
-
-# Initialize the RAG chain
-chain = ConversationalRetrievalChain.from_llm(
-    llm=llm,
-    retriever=vector_store.as_retriever(search_kwargs={'k': 3}),
-    return_source_documents=True,
-    verbose=True
-)
+# Initialize the chain
+rag_chain = init_clients()
 
 @app.route('/')
-def home():
+def index():
+    print('Request for index page received')
     return render_template('index.html')
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        os.path.join(app.root_path, 'static'),
+        'favicon.ico',
+        mimetype='image/vnd.microsoft.icon'
+    )
+
+@app.route('/chat')
+def chat():
+    print('Request for chat page received')
+    return render_template('chat.html')
 
 @app.route('/query', methods=['POST'])
 def query():
@@ -65,11 +79,16 @@ def query():
         query_text = data.get('query')
         chat_history = data.get('chat_history', [])
 
+        if not query_text:
+            return jsonify({"error": "No query provided"}), 400
+
+        print(f'Processing chat query: {query_text}')
+
         # Convert chat history to the format expected by the chain
         formatted_history = [(msg["human"], msg["ai"]) for msg in chat_history]
 
         # Get response from the chain
-        response = chain({
+        response = rag_chain({
             "question": query_text, 
             "chat_history": formatted_history
         })
@@ -86,7 +105,13 @@ def query():
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f'Error processing query: {str(e)}')
+        return jsonify({"error": "An error occurred processing your request"}), 500
+
+# Health check endpoint for Azure
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "healthy"}), 200
 
 if __name__ == '__main__':
-    app.run(debug=False)  # Set debug=False for production
+    app.run(debug=False)  # Set to True for development
