@@ -42,35 +42,35 @@ pip install -r requirements.txt
 3. Create a table for documents with vector support:
 ```sql
 create extension if not exists vector;
+create extension if not exists "uuid-ossp";
 
 create table bulk_documents (
-  id bigserial primary key,
-  content text,
-  metadata jsonb,
-  embedding vector(1536)
+    id uuid primary key default uuid_generate_v4(),
+    content text,
+    metadata jsonb,
+    embedding vector(1536)
 );
 
 create index on bulk_documents using ivfflat (embedding vector_cosine_ops)
-  with (lists = 100);
+    with (lists = 100);
 ```
 
 4. Create a similarity search function:
 ```sql
 create or replace function match_documents(query_embedding vector(1536), match_count int)
-returns table (id bigint, content text, metadata jsonb, similarity float)
-returns null on null input
+returns table (id uuid, content text, metadata jsonb, similarity float)
 language plpgsql
 as $$
 begin
-  return query
-  select
-    id,
-    content,
-    metadata,
-    1 - (embedding <=> query_embedding) as similarity
-  from bulk_documents
-  order by embedding <=> query_embedding
-  limit match_count;
+    return query
+    select
+        id,
+        content,
+        metadata,
+        1 - (embedding <=> query_embedding) as similarity
+    from bulk_documents
+    order by embedding <=> query_embedding
+    limit match_count;
 end;
 $$;
 ```
