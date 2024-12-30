@@ -2,11 +2,11 @@ import os
 from typing import List
 from pathlib import Path
 from dotenv import load_dotenv
-from langchain.document_loaders import DirectoryLoader, PyPDFLoader
+from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import SupabaseVectorStore
-from supabase.client import create_client
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import SupabaseVectorStore
+from supabase import create_client
 
 # Load environment variables
 load_dotenv()
@@ -53,8 +53,8 @@ class PDFProcessor:
             documents=document_chunks,
             embedding=self.embeddings,
             client=self.supabase_client,
-            table_name="bulk_documents",  # Updated table name
-            query_name="match_documents_bulk"  # Update with your query name
+            table_name="bulk_documents",
+            query_name="match_documents"
         )
         return vector_store
 
@@ -86,7 +86,7 @@ def main():
     """
     
     # Specify your PDF directory
-    pdf_directory = "/Users/travisburmaster/Downloads/GSA/"
+    pdf_directory = "path/to/your/pdfs"
     
     # Initialize and run the processor
     processor = PDFProcessor(pdf_directory)
