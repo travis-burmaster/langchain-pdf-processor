@@ -43,14 +43,14 @@ pip install -r requirements.txt
 ```sql
 create extension if not exists vector;
 
-create table documents (
+create table bulk_documents (
   id bigserial primary key,
   content text,
   metadata jsonb,
   embedding vector(1536)
 );
 
-create index on documents using ivfflat (embedding vector_cosine_ops)
+create index on bulk_documents using ivfflat (embedding vector_cosine_ops)
   with (lists = 100);
 ```
 
@@ -68,7 +68,7 @@ begin
     content,
     metadata,
     1 - (embedding <=> query_embedding) as similarity
-  from documents
+  from bulk_documents
   order by embedding <=> query_embedding
   limit match_count;
 end;
@@ -85,8 +85,7 @@ OPENAI_API_KEY=your_openai_api_key
 ```
 
 2. Update the following in `pdf_processor.py`:
-- `table_name`: Your Supabase table name
-- `query_name`: Your similarity search function name
+- `query_name`: Your similarity search function name (default is 'match_documents')
 - `pdf_directory`: Path to your PDF files
 
 ## Usage
