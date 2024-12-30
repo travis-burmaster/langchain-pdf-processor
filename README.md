@@ -30,7 +30,7 @@ cd langchain-pdf-processor
 
 2. Install required packages:
 ```bash
-pip install langchain python-dotenv openai supabase pypdf
+pip install -r requirements.txt
 ```
 
 ## Supabase Setup
