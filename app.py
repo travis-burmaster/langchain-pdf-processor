@@ -35,7 +35,7 @@ def init_clients():
             client=supabase_client,
             embedding=embeddings,
             table_name="bulk_documents",
-            query_name="match_documents"
+            query_name="match_documents_bulk"
         )
         
         # Initialize Langflow chain
