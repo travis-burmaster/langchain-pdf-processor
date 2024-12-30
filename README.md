@@ -94,7 +94,7 @@ OPENAI_API_KEY=your_openai_api_key
 
 2. Update the `pdf_directory` in the main function:
 ```python
-pdf_directory = "path/to/your/pdfs"
+ENV.pdf_directory = "path/to/your/pdfs"
 ```
 
 3. Run the processor:
