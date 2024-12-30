@@ -86,7 +86,7 @@ def main():
     """
     
     # Specify your PDF directory
-    pdf_directory = "path/to/your/pdfs"
+    pdf_directory = "/USERS/travisburmaster/Downloads/GSA/"
     
     # Initialize and run the processor
     processor = PDFProcessor(pdf_directory)
