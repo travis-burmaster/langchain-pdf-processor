@@ -4,9 +4,8 @@ from dotenv import load_dotenv
 import json
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import SupabaseVectorStore
-from langchain.chains import ConversationalRetrievalChain
-from langchain_openai import ChatOpenAI
 from supabase import create_client
+from langflow import load_flow_from_json
 
 # Load environment variables
 load_dotenv()
@@ -15,44 +14,50 @@ app = Flask(__name__)
 
 # Initialize clients and models
 def init_clients():
-    # Initialize Supabase client
-    supabase_client = create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_KEY")
-    )
+    try:
+        # Load Langflow configuration
+        with open('rag.json', 'r') as f:
+            flow_config = json.load(f)
+        
+        # Initialize Supabase client for vector store
+        supabase_client = create_client(
+            os.getenv("SUPABASE_URL"),
+            os.getenv("SUPABASE_SERVICE_KEY")
+        )
+        
+        # Initialize OpenAI embeddings
+        embeddings = OpenAIEmbeddings(
+            openai_api_key=os.getenv("OPENAI_API_KEY")
+        )
+        
+        # Initialize Supabase vector store
+        vector_store = SupabaseVectorStore(
+            client=supabase_client,
+            embedding=embeddings,
+            table_name="bulk_documents",
+            query_name="match_documents"
+        )
+        
+        # Initialize Langflow chain
+        flow = load_flow_from_json(flow_config)
+        # Update the retriever in the flow with our vector store
+        for node in flow['nodes']:
+            if node.get('type') == 'RetrieverTool':
+                node['data']['retriever'] = vector_store.as_retriever(search_kwargs={'k': 3})
+        
+        chain = flow.get_chain()
+        return chain
     
-    # Initialize OpenAI embeddings
-    embeddings = OpenAIEmbeddings(
-        openai_api_key=os.getenv("OPENAI_API_KEY")
-    )
-    
-    # Initialize Supabase vector store
-    vector_store = SupabaseVectorStore(
-        client=supabase_client,
-        embedding=embeddings,
-        table_name="bulk_documents",
-        query_name="match_documents"
-    )
-    
-    # Initialize ChatOpenAI
-    llm = ChatOpenAI(
-        temperature=0.7,
-        model_name="gpt-4-turbo-preview",
-        openai_api_key=os.getenv("OPENAI_API_KEY")
-    )
-    
-    # Initialize the RAG chain
-    chain = ConversationalRetrievalChain.from_llm(
-        llm=llm,
-        retriever=vector_store.as_retriever(search_kwargs={'k': 3}),
-        return_source_documents=True,
-        verbose=True
-    )
-    
-    return chain
+    except Exception as e:
+        print(f"Error initializing clients: {str(e)}")
+        raise
 
 # Initialize the chain
-rag_chain = init_clients()
+try:
+    rag_chain = init_clients()
+except Exception as e:
+    print(f"Failed to initialize RAG chain: {str(e)}")
+    rag_chain = None
 
 @app.route('/')
 def index():
@@ -75,6 +80,9 @@ def chat():
 @app.route('/query', methods=['POST'])
 def query():
     try:
+        if rag_chain is None:
+            return jsonify({"error": "RAG chain not initialized"}), 500
+
         data = request.json
         query_text = data.get('query')
         chat_history = data.get('chat_history', [])
@@ -88,19 +96,25 @@ def query():
         formatted_history = [(msg["human"], msg["ai"]) for msg in chat_history]
 
         # Get response from the chain
-        response = rag_chain({
+        response = rag_chain.invoke({
             "question": query_text, 
             "chat_history": formatted_history
         })
 
-        # Extract source documents
-        sources = [{
-            "content": doc.page_content,
-            "metadata": doc.metadata
-        } for doc in response["source_documents"]]
+        # Extract source documents if available
+        sources = []
+        if hasattr(response, 'source_documents'):
+            sources = [{
+                "content": doc.page_content,
+                "metadata": doc.metadata
+            } for doc in response.source_documents]
+        else:
+            # Handle different response formats from Langflow
+            response_dict = response if isinstance(response, dict) else response.dict()
+            sources = response_dict.get('source_documents', [])
 
         return jsonify({
-            "answer": response["answer"],
+            "answer": response.get('answer', str(response)),
             "sources": sources
         })
 
@@ -111,7 +125,10 @@ def query():
 # Health check endpoint for Azure
 @app.route('/health')
 def health_check():
-    return jsonify({"status": "healthy"}), 200
+    return jsonify({
+        "status": "healthy", 
+        "rag_chain_initialized": rag_chain is not None
+    }), 200
 
 if __name__ == '__main__':
     app.run(debug=False)  # Set to True for development
