@@ -1,0 +1,29 @@
+name: Branch Protection
+
+on:
+  pull_request:
+    branches: [ main, development ]
+
+jobs:
+  enforce-branch-protection:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      
+      - name: Check branch naming convention
+        run: |
+          BRANCH_NAME=$(git branch --show-current)
+          if [[ ! $BRANCH_NAME =~ ^feature/[0-9]+-[a-z0-9-]+$ ]] && [[ $BRANCH_NAME != "development" ]] && [[ $BRANCH_NAME != "main" ]]; then
+            echo "Branch name does not follow convention: feature/[issue-number]-short-description"
+            exit 1
+          fi
+      
+      - name: Ensure PR has linked issue
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          if [[ ! $PR_BODY =~ \#[0-9]+ ]]; then
+            echo "Pull request must reference an issue number"
+            exit 1
+          fi
