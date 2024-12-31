@@ -53,8 +53,8 @@ class PDFProcessor:
             documents=document_chunks,
             embedding=self.embeddings,
             client=self.supabase_client,
-            table_name="documents",
-            query_name="match_documents"
+            table_name="bulk_documents",
+            query_name="match_documents_bulk"
         )
         return vector_store
 
